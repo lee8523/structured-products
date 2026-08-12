@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>产品数据管理后台</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+    --primary:#2563eb;--primary-dark:#1d4ed8;
+    --success:#16a34a;--danger:#dc2626;--warning:#f59e0b;
+    --g50:#f8fafc;--g100:#f1f5f9;--g200:#e2e8f0;--g300:#cbd5e1;
+    --g400:#94a3b8;--g500:#64748b;--g600:#475569;--g700:#334155;
+    --g800:#1e293b;--g900:#0f172a;
+    --r:8px;--sh:0 1px 3px rgba(0,0,.08);--shm:0 4px 6px -1px rgba(0,0,.1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--g50);color:var(--g800);line-height:1.6}
+.header{background:#fff;border-bottom:1px solid var(--g200);height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
+.logo{font-size:20;font-weight:600;color:var(--g900)}
+.header-ops{display:flex;gap:12px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:var(--r);font-size:14px;font-weight:500;cursor:pointer;transition:.2s}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--g300);color:var(--g600)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.container{max-width:1400px;margin:0 auto;padding:20px 24px}
+.panel{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:20px;margin-bottom:20px}
+.panel-title{font-size:16px;font-weight:600;margin-bottom:16px;color:var(--g900);display:flex;justify-content:space-between;align-items:center}
+.grid-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.form-group label{display:block;font-size:13px;color:var(--g600);margin-bottom:4px;font-weight:500}
+.form-group input,.form-group select,.form-group text{width:100%;padding:8px 12px;border:1px solid var(--g300);border-radius:var(--r);font-size:14px;outline:none}
+.form-group input:focus,.form-group select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{background:var(--g50);padding:10px 8px;text-align:left;font-size:12px;color:var(--g500);border-bottom:1px solid var(--g200)}
+td{padding:10px 8px;font-size:13px;border-bottom:1px solid var(--g100)}
+tr:hover{background:var(--g50)}
+.badge{padding:2px 8px;border-radius:10px;font-size:12}
+.badge-ok{background:#dcfce7;color:#166534}
+.badge-warn{background:#fef3c7;color:#92400e}
+.badge-del{background:#fee2e2;color:#991b1b}
+.tab-box{display:flex;border-bottom:2px solid var(--g200);margin-bottom:16px}
+.tab{padding:10px 20px;cursor:pointer;color:var(--g500);border-bottom:2px solid transparent}
+.tab.active{color:var(--primary);border-color:var(--primary)}
+.tab-content{display:none}.tab-content.active{display:block}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--g800);color:#fff;padding:10px 24px;border-radius:var(--r);opacity:0;transition:.3s;z:999}
+.toast.show{opacity:1}
+.page-ctrl{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.page-ctrl button{padding:4px 10px}
+@media(max-width:1024){.grid-row{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640){.grid-row{grid-template-columns:1fr}.header{padding:0 12px}.container{padding:12px}}
+</style>
+</head>
+<body>
+<div class="header">
+    <div class="logo">结构化产品 - 管理后台</div>
+    <div class="header-ops">
+        <button class="btn btn-outline" onclick="loadOnlineData()">拉取线上 products.json</button>
+        <button class="btn btn-success" onclick="exportJson()">导出JSON(上传仓库)</button>
+        <button class="btn btn-primary" onclick="exportExcel()">导出Excel</button>
+        <a class="btn btn-outline" href="./index.html">返回前台展示</a>
+    </div>
+</div>
+<div class="container">
+    <div class="panel">
+        <div class="panel-title">数据导入与批量操作</div>
+        <div class="tab-box">
+            <div class="tab active" onclick="switchTab('tabImport')">Excel导入</div>
+            <div class="tab" onclick="switchTab('tabJson')">JSON导入</div>
+            <div class="tab" onclick="switchTab('tabBatch')">批量处理</div>
+        </div>
+        <div id="tabImport" class="tab-content active">
+            <div class="form-group">
+                <label>选择Excel文件</label>
+                <input type="file" id="excelUpload" accept=".xlsx,.xls">
+                <div style="font-size:12px;color:var(--g400);margin-top:4px">兼容前台导入格式，自动合并去重</div>
+            </div>
+            <button class="btn btn-primary" style="margin-top:12px" onclick="uploadExcel()">读取并载入</button>
+        </div>
+        <div id="tabJson" class="tab-content">
+            <div class="form-group">
+                <label>上传本地 products.json</label>
+                <input type="file" id="jsonUpload" accept=".json">
+            </div>
+            <button class="btn btn-primary" style="margin-top:12px" onclick="uploadJson()">加载数据</button>
+        </div>
+        <div id="tabBatch" class="tab">
+            <div style="display:flex;gap:10;flex-wrap:wrap">
+                <button class="btn btn-danger btn-sm" onclick="batchDeleteFuXing()">批量删除含「福星鑫享」产品</button>
+                <button class="btn btn-outline btn-sm" onclick="clearAllDraft()">清空本地草稿</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">新增 / 编辑产品</div>
+        <input type="hidden" id="editIndex" value="-1">
+        <div class="grid-row">
+            <div class="form-group">
+                <label>产品代码</label>
+                <input id="p_code" placeholder="如 SCG300">
+            </div>
+            <div class="form-group">
+                <label>产品名称</label>
+                <input id="p_name" placeholder="华夏资本龙跃慧盈XXX号">
+            </div>
+            <div class="form-group">
+                <label>产品类型</label>
+                <select id="p_type">
+                    <option value="single_shark">单鲨</option>
+                    <option value="three_element">三元</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>挂钩标的名称</label>
+                <input id="p_underlyingName" placeholder="黄金AU9999">
+            </div>
+        <div class="grid-row">
+            <div class="form-group">
+                <label>标的代码</label>
+                <input id="p_underlyingCode" placeholder="AU9999">
+            </div>
+            <div class="form-group">
+                <label>市场类型</label>
+                <select id="p_market">
+                    <option value="sge">上海黄金</option>
+                    <option value="cn_index">A股指数/ETF</option>
+                    <option value="futures_shfe">上期所</option>
+                    <option value="futures_gfex">广期所</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>起始日期</label>
+                <input type="date" id="p_start">
+            </div>
+            <div class="form-group">
+                <label>到期日期</label>
+                <input type="date" id="p_maturity">
+            </div>
+        </div>
+        <div class="grid-row grid-3">
+            <div class="form-group">
+                <label>行权比例(如1.02=102%)</label>
+                <input type="number" step="0.01" id="p_strike" value="1.0">
+            </div>
+            <div class="form-group">
+                <label>上涨障碍比例</label>
+                <input type="number" step="0.01" id="p_upBarrier" value="1.1">
+            </div>
+            <div class="form-group">
+                <label>下跌障碍比例(三元用)</label>
+                <input type="number" step="0.01" id="p_downBarrier" value="0.8">
+            </div>
+        </div>
+        <div class="grid-row grid-3">
+            <div class="form-group">
+                <label>上涨参与率</label>
+                <input type="number" step="0.0001" id="p_part" value="0.2">
+            </div>
+            <div class="form-group">
+                <label>未行权基准年化</label>
+                <input type="number" step="0.0001" id="p_nonEx" value="0.01">
+            </div>
+            <div class="form-group">
+                <label>敲出基准年化</label>
+                <input type="number" step="0.0001" id="p_knock" value="0.02">
+            </div>
+        </div>
+        <div class="grid-row">
+            <div class="form-group">
+                <label>名义本金</label>
+                <input type="number" id="p_notional" value="10000000">
+            </div>
+            <div class="form-group">
+                <label>障碍状态标记(空/已敲入/未敲入未敲出)</label>
+                <input id="p_override" placeholder="留空自动计算">
+            </div>
+            <div class="form-group">
+                <label>产品期限文本</label>
+                <input id="p_term" placeholder="24个月">
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:10">
+                <button class="btn btn-primary" onclick="saveProduct()">保存产品</button>
+                <button class="btn btn-outline" onclick="resetForm()">清空表单</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">产品列表 <span id="totalCount"></span></div>
+        <div class="filter-bar" style="display:flex;gap:12;margin-bottom:16px;flex-wrap:wrap">
+            <select id="filterType" on="renderTable()">
+                <option value="">全部类型</option>
+                <option value="single_shark">单鲨</option>
+                <option value="three_element">三元</option>
+            </select>
+            <input placeholder="搜索代码/名称" id="kw" oninput="renderTable()">
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>代码</th>
+                        <th>名称</th>
+                        <th>类型</th>
+                        <th>挂钩标的</th>
+                        <th>到期日</th>
+                        <th>剩余天数</th>
+                        <th>障碍标记</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <div class="page-ctrl">
+            <button onclick="pagePrev()">上一页</button>
+            <span id="pageInfo"></span>
+            <button onclick="pageNext()">下一页</button>
+        </div>
+    </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="./utils.js"></script>
+<script>
+// 本地缓存key
+const CACHE_KEY = "admin_product_draft";
+let productList = [];
+let page = 1;
+const pageSize = 20;
+
+// 初始化
+document.addEventListener('DOMContentLoaded', async ()=>{
+    // 读取本地草稿
+    const cache = localStorage.getItem(CACHE_KEY);
+    if(cache) productList = JSON.parse(cache);
+    renderTable();
+    calcTotal();
+})
+
+// 切换Tab
+function switchTab(id){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    event.target.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+// Toast提示
+function showToast(msg){
+    const t = document.getElementById('toast');
+    t.innerText = msg;
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// 拉取线上products.json
+async function loadOnlineData(){
+    try{
+        const res = await fetch("./products.json");
+        if(!res.ok) throw Error;
+        const data = await res.json();
+        productList = data;
+        saveDraft();
+        renderTable();
+        calcTotal();
+        showToast("线上数据加载完成");
+    }catch(e){
+        showToast("拉取失败，请手动导入本地JSON");
+    }
+}
+
+// 保存草稿到localStorage
+function saveDraft(){
+    localStorage.setItem(CACHE_KEY, JSON.stringify(productList));
+}
+
+// 清空草稿
+function clearAllDraft(){
+    productList = [];
+    saveDraft();
+    renderTable();
+    calcTotal();
+    showToast("已清空本地缓存");
+}
+
+// 批量删除福星鑫享
+function batchDeleteFuXing(){
+    const before = productList.length;
+    productList = productList.filter(item=>!item.product_name.includes("福星鑫享"));
+    saveDraft();
+    renderTable();
+    calcTotal();
+    showToast(`删除${before - productList}条福星鑫享产品`);
+}
+
+// 表单重置
+function resetForm(){
+    document.getElementById('editIndex').value = "-1";
+    document.querySelectorAll(".form-group input,.form-group select").forEach(el=>el.value="");
+    document.getElementById('p_strike').value = "1.0";
+    document.getElementById('p_upBarrier').value = "1.1";
+    document.getElementById('p_downBarrier').value = "0.8";
+    document.getElementById('p_part').value = "0.2";
+    document.getElementById('p_nonEx').value = "0.01";
+    document.getElementById('p_knock').value = "0.02";
+    document.getElementById('p_notional').value = "10000000";
+}
+
+// 保存产品（新增/编辑）
+function saveProduct(){
+    const idx = Number(document.getElementById('editIndex').value);
+    const item = {
+        product_code: document.getElementById('p_code').value.trim(),
+        product_name: document.getElementById('p_name').value.trim(),
+        product_type: document.getElementById('p_type').value,
+        underlying_name: document.getElementById('p_underlyingName').value.trim(),
+        underlying_code: document.getElementById('p_underlyingCode').value.trim(),
+        market: document.getElementById('p_market').value,
+        start_date: document.getElementById('p_start').value,
+        maturity_date: document.getElementById('p_maturity').value,
+        strike_pct: Number(document.getElementById('p_strike').value),
+        up_barrier_pct: Number(document.getElementById('p_upBarrier').value),
+        down_barrier_pct: Number(document.getElementById('p_downBarrier').value),
+        participation_rate: Number(document.getElementById('p_part').value),
+        non_exercise_rate: Number(document.getElementById('p_nonEx').value),
+        knock_out_rate: Number(document.getElementById('p_knock').value),
+        notional: Number(document.getElementById('p_notional').value),
+        barrier_override: document.getElementById('p_override').value.trim(),
+        term_text: document.getElementById('p_term').value.trim(),
+        initial_price:0
+    }
+    if(!item.product_code || !item.product_name){
+        showToast("产品代码/名称不能为空");
+        return;
+    }
+    if(idx >=0){
+        productList[idx] = item;
+        showToast("编辑成功");
+    }else{
+        // 去重
+        const exist = productList.find(p=>p.product_code === item.product_code);
+        if(exist){
+            showToast("该产品代码已存在");
+            return;
+        }
+        productList.push(item);
+        showToast("新增成功");
+    }
+    saveDraft();
+    resetForm();
+    renderTable();
+}
+
+// 编辑单行
+function edit(idx){
+    const p = productList[idx];
+    document.getElementById('editIndex').value = idx;
+    document.getElementById('p_code').value = p.product_code;
+    document.getElementById('p_name').value = p.product_name;
+    document.getElementById('p_type').value = p.product_type;
+    document.getElementById('p_underlyingName').value = p.underlying_name;
+    document.getElementById('p_underlyingCode').value = p.underlying_code;
+    document.getElementById('p_market').value = p.market;
+    document.getElementById('p_start').value = p.start_date;
+    document.getElementById('p_maturity').value = p.maturity_date;
+    document.getElementById('p_strike').value = p.strike_pct;
+    document.getElementById('p_upBarrier').value = p.up_barrier_pct;
+    document.getElementById('p_downBarrier').value = p.down_barrier_pct;
+    document.getElementById('p_part').value = p.participation_rate;
+    document.getElementById('p_nonEx').value = p.non_exercise_rate;
+    document.getElementById('p_knock').value = p.knock_out_rate;
+    document.getElementById('p_notional').value = p.notional;
+    document.getElementById('p_override').value = p.barrier_override;
+    document.getElementById('p_term').value = p.term_text;
+}
+
+// 删除单行
+function del(idx){
+    if(!confirm("确定删除该产品？")) return;
+    productList.splice(idx,1);
+    saveDraft();
+    renderTable();
+    calcTotal();
+    showToast("已删除");
+}
+
+// 渲染表格
+function renderTable(){
+    const kw = document.getElementById('kw').value.toLowerCase();
+    const filterType = document.getElementById('filterType').value;
+    let list = productList.filter(p=>{
+        const matchKw = p.product_code.toLowerCase().includes(kw) || p.product_name.toLowerCase().includes(kw);
+        const matchType = !filterType || p.product_type === filterType;
+        return matchKw && matchType;
+    })
+    // 分页
+    const total = list.length;
+    const start = (page-1)*pageSize;
+    const pageData = list.slice(start, start + pageSize);
+    const tbody = document.getElementById('tableBody');
+    if(!pageData.length){
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--g400)">无数据</td></tr>`;
+    }else{
+        tbody.innerHTML = pageData.map((p,i)=>{
+            const realIdx = start + i;
+            let days = 9999;
+            if(p.maturity_date) days = daysBetween(new Date(), new Date(p.maturity_date));
+            let tag = p.barrier_override || "正常";
+            let tagClass = "badge-ok";
+            if(tag.includes("敲入")) tagClass = "badge-del";
+            if(tag.includes("敲出")) tagClass = "badge-warn";
+            return `<tr>
+                <td>${p.product_code}</td>
+                <td>${p.product_name}</td>
+                <td>${p.product_type==='single_shark'?'单鲨':'三元'}</td>
+                <td>${p.underlying_name}</td>
+                <td>${p.maturity_date||"-"}</td>
+                <td>${days<=0?"已到期":days}</td>
+                <td><span class="badge ${tagClass}">${tag}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="edit(${realIdx})">编辑</button>
+                    <button class="btn btn-sm btn-danger" onclick="del(${realIdx})">删除</button>
+                </td>
+            </tr>`
+        }).join("")
+    }
+    // 分页信息
+    const totalPage = Math.ceil(total / pageSize) || 1;
+    document.getElementById('pageInfo').innerText = `第${page}/${totalPage}页 共${total}条`;
+}
+
+function pagePrev(){
+    if(page > 1){ page--; renderTable(); }
+}
+function pageNext(){
+    const total = productList.length;
+    const totalPage = Math.ceil(total / pageSize);
+    if(page < total){ page++; renderTable(); }
+}
+
+function calcTotal(){
+    document.getElementById('totalCount').innerText = `总计${productList.length}个产品`;
+}
+
+// Excel导入
+function uploadExcel(){
+    const file = document.getElementById('excelUpload').files[0];
+    if(!file) return showToast("请选择文件");
+    const reader = new FileReader();
+    reader.onload = e=>{
+        const wb = XLSX.read(e.target.result, {type:"array"});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(s, {defval:""});
+        let add = 0;
+        rows.forEach(r=>{
+            const code = String(r["产品代码"]||"").trim();
+            if(!code) return;
+            const item = {
+                product_code: code,
+                product_name: String(r["产品简称"]||""),
+                product_type: r["期权类型"]==="三元"?"three_element":"single_shark",
+                underlying_name: String(r["挂钩标的"]||""),
+                underlying_code: extractUnderlyingCode(String(r["挂钩标的"]||"")),
+                market: inferMarket(extractUnderlyingCode(String(r["挂钩标的"]||"")), String(r["挂钩标的"]||"")),
+                start_date: parseDate(r["期初观察日"]),
+                maturity_date: parseDate(r["期末观察日"]),
+                strike_pct: parsePctLevel(r["行权价格"]),
+                up_barrier_pct: parsePctLevel(r["上涨障碍价"]),
+                down_barrier_pct: parsePctLevel(r["下跌障碍价"]),
+                participation_rate: parsePctStr(r["上涨参与率"]),
+                non_exercise_rate: parsePctStr(r["未行权基准"]),
+                knock_out_rate: parsePctStr(r["敲出基准"]),
+                notional: 10000000,
+                barrier_override: String(r["障碍标记"]||""),
+                term_text: String(r["产品期限"]||""),
+                initial_price:0
+            }
+            const exist = productList.find(p=>p.product_code === code);
+            if(!exist){
+                productList.push(item); add++;
+            }
+        })
+        saveDraft();
+        renderTable(); calcTotal();
+        showToast(`导入成功${add}个新产品`);
+    }
+    reader.readAsArrayBuffer(file);
+}
+
+// JSON导入
+function uploadJson(){
+    const file = document.getElementById('jsonUpload').files[0];
+    if(!file) return showToast("选择文件");
+    const reader = new FileReader();
+    reader.onload = e=>{
+        try{
+            const data = JSON.parse(e.target.result);
+            productList = data;
+            saveDraft();
+            renderTable(); calcTotal();
+            showToast("JSON加载完成");
+        }catch(err){
+            showToast("JSON格式错误");
+        }
+    }
+    reader.readAsText(file);
+}
+
+// 导出 products.json（上传到github覆盖前台）
+function exportJson(){
+    const blob = new Blob([JSON.stringify(productList, null, 2)], {type:"application/json"});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = "products.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast("JSON已下载，上传仓库即可更新前台");
+}
+
+// 导出Excel
+function exportExcel(){
+    const exportData = productList.map(p=>({
+        "产品代码":p.product_code,
+        "产品简称":p.product_name,
+        "期权类型":p.product_type==="single_shark"?"单鲨":"三元",
+        "挂钩标的":p.underlying_name,
+        "标的代码":p.underlying_code,
+        "期初观察日":p.start_date,
+        "期末观察日":p.maturity_date,
+        "行权价格":(p.strike_pct*100)+"%",
+        "上涨障碍价":(p.up_barrier_pct*100)+"%",
+        "下跌障碍价":(p.down_barrier_pct*100)+"%",
+        "上涨参与率":(p.participation_rate*100)+"%",
+        "未行权基准":(p.non_exercise_rate*100)+"%",
+        "敲出基准":(p.knock_out_rate*100)+"%",
+        "产品期限":p.term_text,
+        "障碍标记":p.barrier_override
+    }))
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "产品列表");
+    XLSX.writeFile(wb, "产品数据导出.xlsx");
+    showToast("Excel导出完成");
+}
+</script>
+</body>
+</html>
