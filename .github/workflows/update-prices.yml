@@ -1,0 +1,36 @@
+name: Daily Price Update
+
+on:
+  schedule:
+    # 每天北京时间 16:00 (UTC 08:00)
+    - cron: '0 8 * * *'
+  workflow_dispatch: # 支持手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  update-prices:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install akshare
+
+      - name: Run price update script
+        run: python update_prices.py
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html structured-notes-dashboard.html
+          git diff --staged --quiet || git commit -m "Auto update prices $(date +'%Y-%m-%d %H:%M')"
+          git push
