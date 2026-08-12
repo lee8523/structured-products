@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>结构化产品展示系统</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary:#2563eb;--primary-dark:#1d4ed8;
+            --success:#16a34a;--danger:#dc2626;--warning:#f59e0b;
+            --g50:#f8fafc;--g100:#f1f5f9;--g200:#e2e8f0;--g300:#cbd5e1;
+            --g400:#94a3b8;--g500:#64748b;--g600:#475569;--g700:#334155;
+            --g800:#1e293b;--g900:#0f172a;
+            --r:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 6px -1px rgba(0,0,0,.1);
+        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--g50);color:var(--g800);line-height:1.6;min-height:100vh}
+        .header{background:#fff;border-bottom:1px solid var(--g200);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
+        .logo{font-size:18px;font-weight:600;color:var(--g900)}
+        .header-right{display:flex;align-items:center;gap:12px}
+        .update-time{font-size:13px;color:var(--g400)}
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:var(--r);font-size:14px;font-weight:500;cursor:pointer;transition:all .2s}
+        .btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}
+        .btn-primary:disabled{background:var(--g300);cursor:not-allowed}
+        .btn-outline{background:transparent;border:1px solid var(--g300);color:var(--g600)}.btn-outline:hover{border-color:var(--primary);color:var(--primary)}
+        .btn-sm{padding:4px 12px;font-size:12px;border-radius:4px}
+        .btn-block{width:100%;justify-content:center}
+        .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:20px 24px}
+        .stat-card{background:#fff;border-radius:var(--r);padding:16px 20px;box-shadow:var(--sh)}
+        .stat-label{font-size:13px;color:var(--g500);margin-bottom:4px}
+        .stat-value{font-size:28px;font-weight:700;color:var(--g900)}
+        .stat-active{color:var(--primary)}
+        .filter-bar{display:flex;gap:16px;padding:0 24px 16px;align-items:flex-end;flex-wrap:wrap}
+        .filter-group{display:flex;flex-direction:column;gap:4px}
+        .filter-group label{font-size:12px;color:var(--g500);font-weight:500}
+        .filter-group select,.filter-group input{padding:7px 12px;border:1px solid var(--g300);border-radius:var(--r);font-size:14px;background:#fff;color:var(--g700);min-width:150px;outline:none}
+        .filter-group select:focus,.filter-group input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+        .table-section{padding:0 24px 24px;overflow-x:auto}
+        .product-table{width:100%;border-collapse:collapse;background:#fff;border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
+        .product-table th{background:var(--g50);padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--g500);border-bottom:1px solid var(--g200);cursor:pointer;user-select:none;white-space:nowrap}
+        .product-table th:hover{color:var(--primary)}
+        .product-table td{padding:10px 12px;font-size:13px;border-bottom:1px solid var(--g100);white-space:nowrap}
+        .product-table tbody tr:hover{background:var(--g50)}
+        .empty-msg{text-align:center;color:var(--g400);padding:40px!important;font-size:15px}
+        .ret-pos{color:var(--danger);font-weight:600}.ret-neg{color:var(--success);font-weight:600}.ret-zero{color:var(--g400)}
+        .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:500}
+        .badge-ok{background:#dcfce7;color:#166534}.badge-warn{background:#fef3c7;color:#92400e}
+        .badge-danger{background:#fee2e2;color:#991b1b}.badge-info{background:#dbeafe;color:#1e40af}
+        .badge-muted{background:var(--g100);color:var(--g500)}
+        .btn-detail{padding:4px 12px;font-size:12px;border-radius:4px;background:var(--g100);border:1px solid var(--g200);color:var(--g600);cursor:pointer;transition:all .2s}
+        .btn-detail:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+        .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;justify-content:center;align-items:center;backdrop-filter:blur(2px)}
+        .modal-overlay.active{display:flex}
+        .modal-content{background:#fff;border-radius:12px;width:90%;max-width:700px;max-height:85vh;overflow-y:auto;box-shadow:0 10px 15px -3px rgba(0,0,0,.1);position:relative;padding:28px}
+        .modal-sm{max-width:420px}
+        .modal-close{position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;color:var(--g400);cursor:pointer}
+        .modal-close:hover{color:var(--g700)}
+        .modal-content h3{font-size:18px;font-weight:600;margin-bottom:16px}
+        .detail-header{margin-bottom:20px}
+        .detail-header h2{font-size:20px;font-weight:700;color:var(--g900)}
+        .detail-header .subtitle{font-size:14px;color:var(--g500);margin-top:4px}
+        .detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+        .detail-item{background:var(--g50);border-radius:var(--r);padding:12px}
+        .detail-item .label{font-size:12px;color:var(--g500);margin-bottom:4px}
+        .detail-item .value{font-size:18px;font-weight:600;color:var(--g900)}
+        .barrier-viz{background:var(--g50);border-radius:var(--r);padding:20px;margin-bottom:20px}
+        .barrier-viz h4{font-size:14px;font-weight:600;color:var(--g700);margin-bottom:16px}
+        .barrier-track{position:relative;height:40px;margin:0 20px}
+        .barrier-track-bg{position:absolute;top:16px;left:0;right:0;height:8px;background:var(--g200);border-radius:4px}
+        .barrier-track-fill{position:absolute;top:16px;left:0;height:8px;border-radius:4px;transition:width .5s}
+        .barrier-line{position:absolute;top:4px;width:2px;height:32px;transform:translateX(-50%)}
+        .barrier-line::after{content:attr(data-label);position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:11px;white-space:nowrap;color:var(--g500)}
+        .barrier-current{position:absolute;top:8px;width:16px;height:16px;border-radius:50%;background:var(--primary);border:3px solid #fff;box-shadow:var(--shm);transform:translateX(-50%);z-index:2;transition:left .5s}
+        .barrier-labels{display:flex;justify-content:space-between;margin-top:24px;font-size:12px;color:var(--g500)}
+        .info-table{width:100%;border-collapse:collapse}
+        .info-table td{padding:8px 0;font-size:14px;border-bottom:1px solid var(--g100)}
+        .info-table td:first-child{color:var(--g500);width:130px}
+        .info-table td:last-child{font-weight:500;color:var(--g800)}
+        .form-group{margin-bottom:14px}
+        .form-group label{display:block;font-size:13px;color:var(--g600);margin-bottom:4px;font-weight:500}
+        .form-group input,.form-group textarea{width:100%;padding:8px 12px;border:1px solid var(--g300);border-radius:var(--r);font-size:14px;outline:none;font-family:inherit}
+        .form-group input:focus,.form-group textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+        .form-group textarea{min-height:120px;resize:vertical}
+        .form-hint{font-size:12px;color:var(--g400);margin-top:4px}
+        .tabs{display:flex;border-bottom:2px solid var(--g200);margin-bottom:16px}
+        .tab{padding:8px 20px;font-size:14px;font-weight:500;color:var(--g500);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+        .tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+        .tab-content{display:none}.tab-content.active{display:block}
+        .fab-group{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:12px;z-index:50}
+        .fab{width:48px;height:48px;border-radius:50%;background:var(--primary);color:#fff;border:none;box-shadow:0 10px 15px -3px rgba(0,0,0,.1);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:20px}
+        .fab:hover{background:var(--primary-dark);transform:scale(1.05)}
+        .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--g800);color:#fff;padding:10px 24px;border-radius:var(--r);font-size:14px;opacity:0;transition:all .3s;z-index:300;pointer-events:none}
+        .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+        .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @media(max-width:768px){.stats-row{grid-template-columns:repeat(2,1fr);gap:10px;padding:12px 16px}.stat-value{font-size:22px}.filter-bar{padding:0 16px 12px}.table-section{padding:0 16px 16px}.detail-grid{grid-template-columns:repeat(2,1fr)}.modal-content{padding:20px}}
+        .login-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);z-index:9999;display:flex;justify-content:center;align-items:center}
+        .login-box{background:#fff;border-radius:16px;padding:40px;width:360px;max-width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+        .login-box h2{font-size:22px;font-weight:700;color:var(--g900);margin-bottom:8px;text-align:center}
+        .login-box p{font-size:14px;color:var(--g500);margin-bottom:24px;text-align:center}
+        .login-box input{width:100%;padding:12px 16px;border:2px solid var(--g200);border-radius:var(--r);font-size:15px;outline:none;margin-bottom:16px;transition:border-color .2s}
+        .login-box input:focus{border-color:var(--primary)}
+        .login-box button{width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:600;cursor:pointer;transition:background .2s}
+        .login-box button:hover{background:var(--primary-dark)}
+        .login-error{color:var(--danger);font-size:13px;text-align:center;margin-bottom:12px;display:none}
+    </style>
+
+<script>window.__AUTO_PRICES__={"prices": {"AU9999": {"price": 946.7, "time": "2026-08-11 收盘"}, "000852": {"price": 7698.048, "time": "2026-08-11 收盘"}, "LC2702": {"price": 144400.0, "time": "2026-08-11 收盘"}, "CU2702": {"price": 107130.0, "time": "2026-08-11 收盘"}, "AG2612": {"price": 15779.0, "time": "2026-08-11 收盘"}, "AL2702": {"price": 24175.0, "time": "2026-08-11 收盘"}, "AL2611": {"price": 24225.0, "time": "2026-08-11 收盘"}, "CU2611": {"price": 107610.0, "time": "2026-08-11 收盘"}}, "initial_prices": {"SCG300": 904.92, "SBUD00": 7698.048, "SBPG46": 895.67, "SB8911": 7631.762, "SB8784": 149660.0, "SB5856": 103080.0, "SB3946": 7167.996, "SB1389": 877.99, "SANX68": 894.39, "SAMX00": 8680.039, "SALA52": 894.39, "SAHE93": 18068.0, "SAHE46": 915.63, "SAGJ97": 8432.679, "SAES00": 972.8, "SAAL56": 961.82, "SAAQ54": 8692.666, "SBWG63": 1028.68, "SBWG71": 24680.0, "SBWE81": 1028.51, "SBWA41": 1026.94, "SBVF60": 1013.6, "SBVF58": 1037.21, "SBVF55": 1037.21, "SBUK70": 8357.814, "SBUD43": 24905.0, "SBUD42": 8106.165, "SBUD41": 8307.436, "SBTQ96": 1042.3, "SBTQ95": 101590.0, "SBTA40": 1008.75, "SBRY82": 8335.908, "SBRJ01": 8335.908}};</script>
+</head>
+<body>
+
+<div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+        <h2>结构化产品展示系统</h2>
+        <p>请输入访问密码</p>
+        <div class="login-error" id="loginError">密码错误，请重试</div>
+        <input type="password" id="passwordInput" placeholder="请输入密码" autocomplete="off">
+        <button onclick="doLogin()">登 录</button>
+    </div>
+</div>
+
+<header class="header">
+    <h1 class="logo">结构化产品展示系统</h1>
+    <div class="header-right">
+        <span class="update-time" id="updateTime">--</span>
+        <button class="btn btn-outline btn-sm" onclick="openImportModal()">导入Excel</button>
+        <button class="btn btn-primary" id="refreshBtn" onclick="refreshPrices()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+            刷新行情
+        </button>
+    </div>
+</header>
+
+<section class="stats-row">
+    <div class="stat-card"><div class="stat-label">产品总数</div><div class="stat-value" id="statTotal">--</div></div>
+    <div class="stat-card"><div class="stat-label">存续中</div><div class="stat-value stat-active" id="statActive">--</div></div>
+    <div class="stat-card"><div class="stat-label">已更新标的</div><div class="stat-value" id="statUpdated">--</div></div>
+</section>
+
+<section class="filter-bar">
+    <div class="filter-group"><label>产品类型</label>
+        <select id="filterType" onchange="applyFilters()">
+            <option value="">全部</option><option value="single_shark">单鲨</option><option value="three_element">三元</option>
+        </select>
+    </div>
+    <div class="filter-group"><label>挂钩标的</label>
+        <select id="filterUnderlying" onchange="applyFilters()">
+            <option value="">全部</option>
+        </select>
+    </div>
+    <div class="filter-group"><label>搜索</label>
+        <input type="text" id="filterSearch" placeholder="产品代码/简称" oninput="applyFilters()">
+    </div>
+</section>
+
+<section class="table-section">
+    <table class="product-table">
+        <thead><tr>
+            <th onclick="sortTable('product_code')">产品代码</th>
+            <th onclick="sortTable('product_name')">产品简称</th>
+            <th onclick="sortTable('product_type')">类型</th>
+            <th onclick="sortTable('underlying_name')">挂钩标的</th>
+            <th onclick="sortTable('current_price')">标的现价</th>
+            <th onclick="sortTable('estimated_return')">估算基准</th>
+            <th>障碍状态</th>
+            <th onclick="sortTable('days_to_maturity')">剩余天数</th>
+            <th>操作</th>
+        </tr></thead>
+        <tbody id="productBody"><tr><td colspan="9" class="empty-msg">加载中...</td></tr></tbody>
+    </table>
+</section>
+
+<!-- 产品详情弹窗 -->
+<div class="modal-overlay" id="detailModal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="document.getElementById('detailModal').classList.remove('active')">&times;</button>
+        <div id="detailContent"></div>
+    </div>
+</div>
+
+<!-- 导入/更新弹窗 -->
+<div class="modal-overlay" id="importModal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-content modal-sm" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="document.getElementById('importModal').classList.remove('active')">&times;</button>
+        <h3>数据管理</h3>
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab(this,'tabFile')">导入Excel</div>
+            <div class="tab" onclick="switchTab(this,'tabManual')">手动更新价格</div>
+            <div class="tab" onclick="switchTab(this,'tabBatch')">批量更新</div>
+        </div>
+        <div id="tabFile" class="tab-content active">
+            <div class="form-group">
+                <label>选择 Excel 文件</label>
+                <input type="file" id="excelFile" accept=".xlsx,.xls" onchange="handleExcelImport(event)">
+                <div class="form-hint">支持你截图中的列格式（产品代码、产品简称、挂钩标的、期权类型...）</div>
+            </div>
+        </div>
+        <div id="tabManual" class="tab-content">
+            <div class="form-group"><label>标的代码</label><input type="text" id="manualCode" placeholder="如 AU9999、000852"></div>
+            <div class="form-group"><label>最新价格</label><input type="number" id="manualPrice" step="0.01" placeholder="如 575.00"></div>
+            <button class="btn btn-primary btn-block" onclick="submitManualPrice()">确认更新</button>
+        </div>
+        <div id="tabBatch" class="tab-content">
+            <div class="form-group">
+                <label>批量输入（每行：标的代码,价格）</label>
+                <textarea id="batchInput" placeholder="AU9999,575.00&#10;000852,6120.35&#10;LC2702,72500"></textarea>
+            </div>
+            <button class="btn btn-primary btn-block" onclick="submitBatchPrices()">批量更新</button>
+        </div>
+    </div>
+</div>
+
+<div class="fab-group">
+    <button class="fab" onclick="openImportModal()" title="数据管理">&#9998;</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// 全局状态
+// ============================================================
+let products = [];
+let priceCache = {};
+let initialPrices = {};  // 产品代码 → 期初价（标的在期初日的收盘价）
+let filteredProducts = [];
+let currentSort = { field: '', asc: true };
+
+// ============================================================
+// 真实产品数据（来自你的 Excel）
+// ============================================================
+const REAL_PRODUCTS = [
+    {
+        product_code:"SCG300",
+        product_name:"华夏资本龙跃慧盈198号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2027年1月5日止",
+        strike_pct:1.02,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.14300000000000002,
+        non_exercise_rate:0.016,
+        knock_out_rate:0.016,
+        start_date:"2026-08-05",
+        maturity_date:"2026-12-31",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBUD00",
+        product_name:"华夏资本龙跃慧盈197号",
+        underlying_name:"中证1000",
+        underlying_code:"000852",
+        market:"cn_index",
+        product_type:"three_element",
+        term_text:"24个月",
+        strike_pct:0,
+        up_barrier_pct:1.0,
+        down_barrier_pct:0.8,
+        participation_rate:0.0,
+        non_exercise_rate:0.001,
+        knock_out_rate:0.0403,
+        start_date:"2026-08-11",
+        maturity_date:"2028-07-27",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"未敲入未敲出",
+    },
+    {
+        product_code:"SBPG46",
+        product_name:"华夏资本龙跃慧盈196号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2027年1月5日止",
+        strike_pct:1.01,
+        up_barrier_pct:1.12,
+        down_barrier_pct:0,
+        participation_rate:0.26,
+        non_exercise_rate:0.013000000000000001,
+        knock_out_rate:0.016,
+        start_date:"2026-07-23",
+        maturity_date:"2027-01-04",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SB8911",
+        product_name:"华夏资本龙跃慧盈193号",
+        underlying_name:"中证1000",
+        underlying_code:"000852",
+        market:"cn_index",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年12月25日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.267,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.021,
+        start_date:"2026-07-16",
+        maturity_date:"2026-12-24",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SB8784",
+        product_name:"华夏资本龙跃慧盈195号",
+        underlying_name:"碳酸锂期货2702",
+        underlying_code:"LC2702",
+        market:"futures_gfex",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年10月8日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.395,
+        non_exercise_rate:0.0,
+        knock_out_rate:0.027999999999999997,
+        start_date:"2026-07-13",
+        maturity_date:"2026-09-30",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SB5856",
+        product_name:"华夏资本龙跃慧盈192号",
+        underlying_name:"沪铜2702",
+        underlying_code:"CU2702",
+        market:"futures_shfe",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2027年1月5日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.245,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.02,
+        start_date:"2026-07-17",
+        maturity_date:"2027-01-04",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SB3946",
+        product_name:"华夏资本龙跃慧盈191号",
+        underlying_name:"中证1000",
+        underlying_code:"000852",
+        market:"cn_index",
+        product_type:"three_element",
+        term_text:"24个月",
+        strike_pct:0,
+        up_barrier_pct:1.0,
+        down_barrier_pct:0.8,
+        participation_rate:0.0,
+        non_exercise_rate:0.001,
+        knock_out_rate:0.0403,
+        start_date:"2026-07-17",
+        maturity_date:"2028-07-07",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"未敲入未敲出",
+    },
+    {
+        product_code:"SB1389",
+        product_name:"华夏资本龙跃慧盈190号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2027年1月5日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.12,
+        down_barrier_pct:0,
+        participation_rate:0.2925,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.019,
+        start_date:"2026-07-15",
+        maturity_date:"2027-01-04",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SANX68",
+        product_name:"华夏资本龙跃慧盈187号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月24日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.12,
+        down_barrier_pct:0,
+        participation_rate:0.28,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.0196,
+        start_date:"2026-06-24",
+        maturity_date:"2026-09-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SAMX00",
+        product_name:"华夏资本龙跃慧盈186号",
+        underlying_name:"中证1000",
+        underlying_code:"000852",
+        market:"cn_index",
+        product_type:"three_element",
+        term_text:"24个月",
+        strike_pct:0,
+        up_barrier_pct:1.02,
+        down_barrier_pct:0.8,
+        participation_rate:0.0,
+        non_exercise_rate:0.001,
+        knock_out_rate:0.0435,
+        start_date:"2026-06-23",
+        maturity_date:"2028-06-09",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"已敲入",
+    },
+    {
+        product_code:"SALA52",
+        product_name:"华夏资本龙跃慧盈185号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年11月24日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.255,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.02,
+        start_date:"2026-06-24",
+        maturity_date:"2026-11-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SAHE93",
+        product_name:"华夏资本龙跃慧盈184号",
+        underlying_name:"沪银2612",
+        underlying_code:"AG2612",
+        market:"futures_shfe",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月24日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.18,
+        down_barrier_pct:0,
+        participation_rate:0.239,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.019,
+        start_date:"2026-06-03",
+        maturity_date:"2026-09-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SAHE46",
+        product_name:"华夏资本龙跃慧盈183号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年11月24日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.12,
+        down_barrier_pct:0,
+        participation_rate:0.3025,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.018600000000000002,
+        start_date:"2026-06-10",
+        maturity_date:"2026-11-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SAGJ97",
+        product_name:"华夏资本龙跃慧盈182号",
+        underlying_name:"中证1000",
+        underlying_code:"000852",
+        market:"cn_index",
+        product_type:"three_element",
+        term_text:"24个月",
+        strike_pct:0,
+        up_barrier_pct:1.02,
+        down_barrier_pct:0.8,
+        participation_rate:0.0,
+        non_exercise_rate:0.002,
+        knock_out_rate:0.0425,
+        start_date:"2026-06-03",
+        maturity_date:"2028-05-26",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"未敲入未敲出",
+    },
+    {
+        product_code:"SAES00",
+        product_name:"华夏资本龙跃慧盈181号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年11月24日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.1,
+        down_barrier_pct:0,
+        participation_rate:0.305,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.019,
+        start_date:"2026-06-03",
+        maturity_date:"2026-11-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SAAL56",
+        product_name:"华夏资本龙跃慧盈180号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年11月24日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.204,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.017,
+        start_date:"2026-05-28",
+        maturity_date:"2026-11-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SAAQ54",
+        product_name:"华夏资本龙跃慧盈179号",
+        underlying_name:"中证1000",
+        underlying_code:"000852",
+        market:"cn_index",
+        product_type:"three_element",
+        term_text:"24个月",
+        strike_pct:0,
+        up_barrier_pct:1.02,
+        down_barrier_pct:0.8,
+        participation_rate:0.0,
+        non_exercise_rate:0.001,
+        knock_out_rate:0.040999999999999995,
+        start_date:"2026-05-22",
+        maturity_date:"2028-05-12",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"未敲入未敲出",
+    },
+    {
+        product_code:"SBWG63",
+        product_name:"华夏资本龙跃慧盈178号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月23日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.187,
+        non_exercise_rate:0.012,
+        knock_out_rate:0.0195,
+        start_date:"2026-05-14",
+        maturity_date:"2026-09-22",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBWG71",
+        product_name:"华夏资本龙跃慧盈177号",
+        underlying_name:"沪铝期货",
+        underlying_code:"AL2702",
+        market:"futures_shfe",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月23日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.25,
+        down_barrier_pct:0,
+        participation_rate:0.155,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.022400000000000003,
+        start_date:"2026-05-12",
+        maturity_date:"2026-09-22",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBWE81",
+        product_name:"华夏资本龙跃慧盈176号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年10月26日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.48,
+        non_exercise_rate:0.005,
+        knock_out_rate:0.0235,
+        start_date:"2026-05-12",
+        maturity_date:"2026-10-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBWA41",
+        product_name:"华夏资本龙跃慧盈175号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年10月27日止",
+        strike_pct:0.98,
+        up_barrier_pct:1.1,
+        down_barrier_pct:0,
+        participation_rate:0.25,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.02,
+        start_date:"2026-05-06",
+        maturity_date:"2026-10-26",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBVF60",
+        product_name:"华夏资本龙跃慧盈173号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月24日止",
+        strike_pct:1.01,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.193,
+        non_exercise_rate:0.013000000000000001,
+        knock_out_rate:0.019,
+        start_date:"2026-04-30",
+        maturity_date:"2026-09-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBVF58",
+        product_name:"华夏资本龙跃慧盈172号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年12月30日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.12,
+        down_barrier_pct:0,
+        participation_rate:0.46,
+        non_exercise_rate:0.015,
+        knock_out_rate:0.016200000000000003,
+        start_date:"2026-04-27",
+        maturity_date:"2026-12-29",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBVF55",
+        product_name:"华夏资本龙跃慧盈171号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月24日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.1,
+        down_barrier_pct:0,
+        participation_rate:0.46299999999999997,
+        non_exercise_rate:0.015,
+        knock_out_rate:0.016200000000000003,
+        start_date:"2026-04-27",
+        maturity_date:"2026-09-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBUK70",
+        product_name:"华夏资本龙跃慧盈168号",
+        underlying_name:"中证1000指数",
+        underlying_code:"000852",
+        market:"cn_index",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月24日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.12,
+        down_barrier_pct:0,
+        participation_rate:0.28,
+        non_exercise_rate:0.013000000000000001,
+        knock_out_rate:0.020499999999999997,
+        start_date:"2026-04-20",
+        maturity_date:"2026-09-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBUD43",
+        product_name:"华夏资本龙跃慧盈165号",
+        underlying_name:"沪铝2611",
+        underlying_code:"AL2611",
+        market:"futures_shfe",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月24日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.18,
+        down_barrier_pct:0,
+        participation_rate:0.49,
+        non_exercise_rate:0.0,
+        knock_out_rate:0.03,
+        start_date:"2026-04-15",
+        maturity_date:"2026-09-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBUD42",
+        product_name:"华夏资本龙跃慧盈163号",
+        underlying_name:"中证1000",
+        underlying_code:"000852",
+        market:"cn_index",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月24日止",
+        strike_pct:0.95,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.38,
+        non_exercise_rate:0.0,
+        knock_out_rate:0.03,
+        start_date:"2026-04-15",
+        maturity_date:"2026-09-23",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBUD41",
+        product_name:"华夏资本龙跃慧盈162号",
+        underlying_name:"中证1000",
+        underlying_code:"000852",
+        market:"cn_index",
+        product_type:"three_element",
+        term_text:"24个月",
+        strike_pct:0,
+        up_barrier_pct:1.03,
+        down_barrier_pct:0.8,
+        participation_rate:0.0,
+        non_exercise_rate:0.001,
+        knock_out_rate:0.043,
+        start_date:"2026-04-17",
+        maturity_date:"2028-04-07",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"未敲入未敲出",
+    },
+    {
+        product_code:"SBTQ96",
+        product_name:"华夏资本龙跃慧盈161号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月15日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.24,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.02,
+        start_date:"2026-04-13",
+        maturity_date:"2026-09-14",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBTQ95",
+        product_name:"华夏资本龙跃慧盈160号",
+        underlying_name:"沪铜2611",
+        underlying_code:"CU2611",
+        market:"futures_shfe",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月15日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.256,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.0195,
+        start_date:"2026-04-15",
+        maturity_date:"2026-09-14",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBTA40",
+        product_name:"华夏资本龙跃慧盈158号",
+        underlying_name:"黄金AU9999",
+        underlying_code:"AU9999",
+        market:"sge",
+        product_type:"single_shark",
+        term_text:"本合同有效期自合同生效之日起至2026年9月22日止",
+        strike_pct:1.0,
+        up_barrier_pct:1.15,
+        down_barrier_pct:0,
+        participation_rate:0.258,
+        non_exercise_rate:0.01,
+        knock_out_rate:0.0202,
+        start_date:"2026-03-30",
+        maturity_date:"2026-09-21",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"",
+    },
+    {
+        product_code:"SBRY82",
+        product_name:"华夏资本龙跃慧盈155号",
+        underlying_name:"中证1000",
+        underlying_code:"000852",
+        market:"cn_index",
+        product_type:"three_element",
+        term_text:"24个月",
+        strike_pct:0,
+        up_barrier_pct:1.03,
+        down_barrier_pct:0.8,
+        participation_rate:0.0,
+        non_exercise_rate:0.0,
+        knock_out_rate:0.04,
+        start_date:"2026-03-12",
+        maturity_date:"2028-03-03",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"未敲入未敲出",
+    },
+    {
+        product_code:"SBRJ01",
+        product_name:"华夏资本龙跃慧盈153号",
+        underlying_name:"中证1000",
+        underlying_code:"000852",
+        market:"cn_index",
+        product_type:"three_element",
+        term_text:"24个月",
+        strike_pct:0,
+        up_barrier_pct:1.03,
+        down_barrier_pct:0.8,
+        participation_rate:0.0,
+        non_exercise_rate:0.0,
+        knock_out_rate:0.04,
+        start_date:"2026-03-12",
+        maturity_date:"2028-03-03",
+        initial_price:0,
+        notional:10000000,
+        barrier_override:"未敲入未敲出",
+    },
+];
+
+// ============================================================
+// 初始化
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+    try { const c = localStorage.getItem('sn_products'); if (c) products = JSON.parse(c); } catch(e) {}
+    try { const c = localStorage.getItem('sn_prices'); if (c) priceCache = JSON.parse(c); } catch(e) {}
+    try { const c = localStorage.getItem('sn_initial_prices'); if (c) initialPrices = JSON.parse(c); } catch(e) {}
+    if (products.length === 0) { products = JSON.parse(JSON.stringify(REAL_PRODUCTS)); saveProducts(); }
+    // 产品列表更新: 如果数量不匹配或缺少字段，重新加载
+    if (products.length !== REAL_PRODUCTS.length || !products[0].hasOwnProperty('barrier_override')) {
+        products = JSON.parse(JSON.stringify(REAL_PRODUCTS)); saveProducts();
+    }
+
+    // 优先使用 Python 脚本自动注入的数据（update_prices.py）
+    if (window.__AUTO_PRICES__) {
+        const ap = window.__AUTO_PRICES__;
+        // 新格式: { prices: {...}, initial_prices: {...} }
+        if (ap.prices) {
+            Object.assign(priceCache, ap.prices);
+            savePrices();
+            const t = Object.values(ap.prices)[0]?.time || '';
+            if (t) document.getElementById('updateTime').textContent = '自动更新: ' + t;
+        } else {
+            // 兼容旧格式（直接是价格对象）
+            Object.assign(priceCache, ap);
+            savePrices();
+            const t = Object.values(ap)[0]?.time || '';
+            if (t) document.getElementById('updateTime').textContent = '自动更新: ' + t;
+        }
+        if (ap.initial_prices) {
+            initialPrices = JSON.parse(JSON.stringify(ap.initial_prices));
+            try { localStorage.setItem('sn_initial_prices', JSON.stringify(initialPrices)); } catch(e) {}
+        }
+    } else if (Object.keys(priceCache).length > 0) {
+        const t = Object.values(priceCache)[0]?.time || '';
+        if (t) document.getElementById('updateTime').textContent = '缓存数据: ' + t;
+    }
+
+    buildUnderlyingFilter();
+    recalculate();
+});
+
+function saveProducts() { try { localStorage.setItem('sn_products', JSON.stringify(products)); } catch(e) {} }
+function savePrices() { try { localStorage.setItem('sn_prices', JSON.stringify(priceCache)); } catch(e) {} }
+
+// ============================================================
+// 定价引擎
+// ============================================================
+function daysBetween(d1, d2) {
+    try { return Math.max(0, Math.round((new Date(d2) - new Date(d1)) / 86400000)); } catch(e) { return 365; }
+}
+
+function getInitialPrice(p) {
+    // 优先使用 Python 脚本从历史收盘价获取的期初价
+    if (initialPrices[p.product_code] && initialPrices[p.product_code] > 0)
+        return initialPrices[p.product_code];
+    // 其次用产品自带的 initial_price
+    if (p.initial_price && p.initial_price > 0) return p.initial_price;
+    // 最后用当前价（不准确，仅作为兜底）
+    const cached = priceCache[p.underlying_code];
+    if (cached && cached.price > 0) return cached.price;
+    return 0;
+}
+
+function calcSingleShark(p, price) {
+    const initial = getInitialPrice(p);
+    if (!price || price <= 0 || !initial) return emptyResult(p, price);
+
+    const strikePct = p.strike_pct || 1;
+    const strike = initial * strikePct;
+    const upBarrier = initial * (p.up_barrier_pct || 0);
+    const partRate = p.participation_rate || 0;
+    const nonExRate = p.non_exercise_rate || 0;
+    const koRate = p.knock_out_rate || 0;
+    const notional = p.notional || 10000000;
+    const today = new Date().toISOString().slice(0, 10);
+    const totalDays = daysBetween(p.start_date, p.maturity_date);
+    const elapsed = daysBetween(p.start_date, today);
+    const remaining = daysBetween(today, p.maturity_date);
+    const progress = totalDays > 0 ? Math.min(elapsed / totalDays, 1) : 0;
+    const matured = remaining <= 0;
+
+    let nav, ret, statusText, barrierState;
+
+    if (upBarrier > 0 && price >= upBarrier) {
+        // 情形一：触及上涨障碍 → 锁定敲出基准
+        ret = koRate;
+        nav = 1 + ret;
+        statusText = matured ? '已到期(触及障碍)' : '基准情景(触及障碍)';
+        barrierState = 'up_barrier_hit';
+    } else if (price >= strike) {
+        // 情形二：未触及障碍，在行权价之上 → 未行权基准 + 参与率×涨幅
+        ret = nonExRate + partRate * (price / initial - strikePct);
+        nav = 1 + ret;
+        statusText = matured ? '已到期(行权价之上)' : '基准情景(行权价之上)';
+        barrierState = matured ? 'matured' : 'normal';
+    } else {
+        // 情形三：未触及障碍，在行权价之下 → 未行权基准（保底）
+        ret = nonExRate;
+        nav = 1 + ret;
+        statusText = matured ? '已到期(行权价之下)' : '基准情景(行权价之下)';
+        barrierState = matured ? 'matured' : 'normal';
+    }
+
+    const distUp = upBarrier > 0 ? (upBarrier - price) / price * 100 : null;
+
+    return {
+        ...p, current_price: price, initial_price_display: initial,
+        nav: +nav.toFixed(6), estimated_return: +(ret * 100).toFixed(2),
+        estimated_value: +(notional * nav).toFixed(2),
+        days_to_maturity: remaining, progress: +(progress * 100).toFixed(1),
+        status: statusText,
+        barrier_status: {
+            state: barrierState, strike, up_barrier: upBarrier,
+            dist_up: distUp !== null ? +distUp.toFixed(1) : null,
+            current_price: price, initial_price: initial
+        },
+        details: {
+            '行权价': strike.toFixed(2) + ` (${(strikePct*100).toFixed(0)}%)`,
+            '上涨障碍': upBarrier > 0 ? upBarrier.toFixed(2) + ` (${(p.up_barrier_pct*100).toFixed(0)}%)` : '无',
+            '上涨参与率': (partRate * 100).toFixed(2) + '%',
+            '未行权基准': (nonExRate * 100).toFixed(2) + '%',
+            '敲出基准': (koRate * 100).toFixed(2) + '%',
+            '距上涨障碍': distUp !== null ? distUp.toFixed(1) + '%' : 'N/A',
+            '距行权价': ((strike - price) / price * 100).toFixed(1) + '%'
+        }
+    };
+}
+
+function calcThreeElement(p, price) {
+    const initial = getInitialPrice(p);
+    if (!price || price <= 0 || !initial) return emptyResult(p, price);
+
+    const strike = initial; // 三元行权价 = 期初价
+    const upBarrier = initial * (p.up_barrier_pct || 1);
+    const downBarrier = initial * (p.down_barrier_pct || 0.8);
+    const nonExRate = p.non_exercise_rate || 0;
+    const koRate = p.knock_out_rate || 0;
+    const notional = p.notional || 10000000;
+    const today = new Date().toISOString().slice(0, 10);
+    const totalDays = daysBetween(p.start_date, p.maturity_date);
+    const elapsed = daysBetween(p.start_date, today);
+    const remaining = daysBetween(today, p.maturity_date);
+    const progress = totalDays > 0 ? Math.min(elapsed / totalDays, 1) : 0;
+    const matured = remaining <= 0;
+
+    let nav, ret, statusText, barrierState;
+
+    if (price >= upBarrier) {
+        // 敲出：获得敲出基准收益（按持有天数计算）
+        const holdingYears = Math.max(elapsed, 1) / 365;
+        ret = koRate * holdingYears;
+        nav = 1 + ret;
+        statusText = matured ? '已到期(已敲出)' : '已敲出';
+        barrierState = 'knock_out';
+    } else if (price <= downBarrier) {
+        // 敲入：承受标的跌幅
+        ret = price / initial - 1;
+        nav = 1 + ret;
+        statusText = matured ? '已到期(已敲入)' : '已敲入';
+        barrierState = 'knock_in';
+    } else if (matured) {
+        // 到期未触发障碍：比较现价与期初价
+        if (price >= initial) {
+            // 现价 >= 期初价：获得未行权基准收益
+            ret = nonExRate;
+            statusText = '已到期(期初价之上)';
+        } else {
+            // 现价 < 期初价：零收益
+            ret = 0;
+            statusText = '已到期(期初价之下)';
+        }
+        nav = 1 + ret;
+        barrierState = 'matured';
+    } else {
+        // 存续中：基准情景 → 敲出基准
+        ret = koRate;
+        nav = 1 + ret;
+        statusText = '基准情景(敲出基准)';
+        barrierState = 'normal';
+    }
+
+    const distUp = (upBarrier - price) / price * 100;
+    const distDown = (price - downBarrier) / price * 100;
+
+    return {
+        ...p, current_price: price, initial_price_display: initial,
+        nav: +nav.toFixed(6), estimated_return: +(ret * 100).toFixed(2),
+        estimated_value: +(notional * nav).toFixed(2),
+        days_to_maturity: remaining, progress: +(progress * 100).toFixed(1),
+        status: statusText,
+        barrier_status: {
+            state: barrierState, strike, up_barrier: upBarrier, down_barrier: downBarrier,
+            dist_up: +distUp.toFixed(1), dist_down: +distDown.toFixed(1),
+            current_price: price, initial_price: initial
+        },
+        details: {
+            '敲出价(100%)': upBarrier.toFixed(2),
+            '敲入价(80%)': downBarrier.toFixed(2),
+            '期初价': initial.toFixed(2),
+            '未行权基准': (nonExRate * 100).toFixed(2) + '%',
+            '敲出基准(年化)': (koRate * 100).toFixed(2) + '%/年',
+            '距敲出': distUp.toFixed(1) + '%',
+            '距敲入': distDown.toFixed(1) + '%'
+        }
+    };
+}
+
+function emptyResult(p, price) {
+    return { ...p, current_price: price||0, nav:0, estimated_return:0, estimated_value:0,
+        days_to_maturity:0, progress:0, status:'待输入价格', barrier_status:null, details:{} };
+}
+
+function calculate(p, price) {
+    try {
+        if (p.product_type === 'three_element') return calcThreeElement(p, price);
+        return calcSingleShark(p, price);
+    } catch(e) { return emptyResult(p, price); }
+}
+
+function recalculate() {
+    filteredProducts = products.map(p => {
+        const cached = priceCache[p.underlying_code];
+        return calculate(p, cached ? cached.price : 0);
+    });
+    applyFilters();
+}
+
+// ============================================================
+// 行情抓取
+// ============================================================
+function buildSinaUrl(code, market) {
+    if (market === 'cn_index') {
+        const prefix = code.startsWith('399') ? 'sz' : 'sh';
+        return `https://hq.sinajs.cn/list=s_${prefix}${code}`;
+    }
+    if (market === 'sge') {
+        // 上海黄金交易所 AU9999
+        return `https://hq.sinajs.cn/list=hf_GC`; // 用COMEX黄金作为参考
+    }
+    if (market === 'futures_shfe') {
+        // 上期所期货 CU2702 → 尝试新浪期货代码
+        const base = code.replace(/\d+$/, '');
+        return `https://hq.sinajs.cn/list=nf_${base.toLowerCase()}0`;
+    }
+    if (market === 'futures_gfex') {
+        // 广期所 碳酸锂 LC2702
+        const base = code.replace(/\d+$/, '');
+        return `https://hq.sinajs.cn/list=nf_${base.toLowerCase()}0`;
+    }
+    return null;
+}
+
+function parseSinaResponse(text, market) {
+    const match = text.match(/"([^"]+)"/);
+    if (!match) return null;
+    const fields = match[1].split(',');
+    if (fields.length < 2) return null;
+    if (market === 'cn_index') return parseFloat(fields[1]) || null;
+    for (const f of fields) { const v = parseFloat(f); if (v > 0) return v; }
+    return null;
+}
+
+async function fetchPrice(code, market) {
+    const url = buildSinaUrl(code, market);
+    if (!url) return null;
+    const proxies = [
+        u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+        u => `https://cors.app/run?${encodeURIComponent(u)}`
+    ];
+    for (const proxy of proxies) {
+        try {
+            const resp = await fetch(proxy(url), { signal: AbortSignal.timeout(8000) });
+            if (!resp.ok) continue;
+            const text = await resp.text();
+            const price = parseSinaResponse(text, market);
+            if (price && price > 0) return price;
+        } catch(e) { continue; }
+    }
+    return null;
+}
+
+async function refreshPrices() {
+    const btn = document.getElementById('refreshBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> 刷新中...';
+
+    const unique = {};
+    products.forEach(p => { if (p.underlying_code && !unique[p.underlying_code]) unique[p.underlying_code] = p.market; });
+
+    let updated = 0, failed = 0;
+    for (const [code, market] of Object.entries(unique)) {
+        try {
+            const price = await fetchPrice(code, market);
+            if (price) { priceCache[code] = { price, time: new Date().toLocaleString('zh-CN') }; updated++; }
+            else { failed++; }
+        } catch(e) { failed++; }
+    }
+    savePrices();
+    recalculate();
+
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg> 刷新行情';
+    showToast(`已更新 ${updated} 个标的` + (failed > 0 ? `，${failed} 个需手动输入` : ''));
+    document.getElementById('updateTime').textContent = '更新于 ' + new Date().toLocaleString('zh-CN');
+}
+
+// ============================================================
+// 渲染
+// ============================================================
+function buildUnderlyingFilter() {
+    const names = [...new Set(products.map(p => p.underlying_name))];
+    const sel = document.getElementById('filterUnderlying');
+    sel.innerHTML = '<option value="">全部</option>' + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+}
+
+function applyFilters() {
+    const type = document.getElementById('filterType').value;
+    const underlying = document.getElementById('filterUnderlying').value;
+    const search = document.getElementById('filterSearch').value.toLowerCase();
+
+    filteredProducts = products.map(p => {
+        const c = priceCache[p.underlying_code];
+        return calculate(p, c ? c.price : 0);
+    }).filter(p => {
+        if (type && p.product_type !== type) return false;
+        if (underlying && p.underlying_name !== underlying) return false;
+        if (search && !(`${p.product_code} ${p.product_name}`.toLowerCase().includes(search))) return false;
+        return true;
+    });
+
+    updateStats();
+    renderTable();
+}
+
+function updateStats() {
+    const all = products.map(p => { const c = priceCache[p.underlying_code]; return calculate(p, c?c.price:0); });
+    const total = all.length;
+    const active = all.filter(p => p.days_to_maturity > 0).length;
+    const updated = all.filter(p => priceCache[p.underlying_code]).length;
+
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statActive').textContent = active;
+    document.getElementById('statUpdated').textContent = `${updated}/${total}`;
+}
+
+function renderTable() {
+    const tbody = document.getElementById('productBody');
+    if (!filteredProducts.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty-msg">暂无匹配的产品</td></tr>'; return; }
+    tbody.innerHTML = filteredProducts.map(p => `<tr>
+        <td><strong>${esc(p.product_code)}</strong></td>
+        <td>${esc(p.product_name)}</td>
+        <td>${typeLabel(p.product_type)}</td>
+        <td>${esc(p.underlying_name)}</td>
+        <td>${fmtPrice(p.current_price)}</td>
+        <td>${p.product_type === 'three_element' ? '<span style="color:var(--g400)">--</span>' : (p.nav > 0 ? `<span class="${retClass(p.estimated_return)}">${fmtRet(p.estimated_return)}</span>` : '<span style="color:var(--g400)">待更新</span>')}</td>
+        <td>${barrierBadge(p)}</td>
+        <td>${p.days_to_maturity > 0 ? p.days_to_maturity : '--'}</td>
+        <td><button class="btn-detail" onclick="showDetail('${esc(p.product_code)}')">详情</button></td>
+    </tr>`).join('');
+}
+
+function barrierBadge(p) {
+    const bs = p.barrier_status;
+    if (!bs) return '<span class="badge badge-muted">--</span>';
+    if (p.product_type === 'three_element') {
+        // 使用障碍状态覆盖（统一显示"未敲入未敲出"，186号"已敲入"）
+        if (p.barrier_override) {
+            let cls = 'badge-ok';
+            if (p.barrier_override === '已敲入') cls = 'badge-danger';
+            else if (p.barrier_override === '已敲出') cls = 'badge-info';
+            return `<span class="badge ${cls}">${esc(p.barrier_override)}</span>`;
+        }
+        if (bs.state === 'knock_out') return '<span class="badge badge-info">已敲出</span>';
+        if (bs.state === 'knock_in') return '<span class="badge badge-danger">已敲入</span>';
+        return `<span class="badge badge-ok">距敲出 ${bs.dist_up}% / 距敲入 ${bs.dist_down}%</span>`;
+    }
+    if (p.product_type === 'single_shark') {
+        if (bs.state === 'up_barrier_hit') return '<span class="badge badge-info">触及障碍</span>';
+        if (bs.dist_up !== null) {
+            let cls = 'badge-ok';
+            if (bs.dist_up < 5) cls = 'badge-warn';
+            if (bs.dist_up < 2) cls = 'badge-danger';
+            return `<span class="badge ${cls}">距障碍 ${bs.dist_up}%</span>`;
+        }
+    }
+    return '<span class="badge badge-muted">--</span>';
+}
+
+function sortTable(field) {
+    if (currentSort.field === field) currentSort.asc = !currentSort.asc;
+    else { currentSort.field = field; currentSort.asc = true; }
+    filteredProducts.sort((a, b) => {
+        let va = a[field], vb = b[field];
+        if (typeof va === 'string') return currentSort.asc ? va.localeCompare(vb) : vb.localeCompare(va);
+        return currentSort.asc ? (va||0)-(vb||0) : (vb||0)-(va||0);
+    });
+    renderTable();
+}
+
+// ============================================================
+// 详情弹窗
+// ============================================================
+function showDetail(code) {
+    const p0 = products.find(p => p.product_code === code);
+    if (!p0) return;
+    const cached = priceCache[p0.underlying_code];
+    const p = calculate(p0, cached ? cached.price : 0);
+    const bs = p.barrier_status;
+
+    let vizHtml = '';
+    if (bs && bs.initial_price > 0) {
+        const ip = bs.initial_price, cp = bs.current_price;
+        const lo = ip * 0.8, hi = ip * 1.2, range = hi - lo;
+        const cpPct = Math.max(0, Math.min(100, (cp - lo) / range * 100));
+        const ipPct = 50;
+
+        if (p.product_type === 'three_element') {
+            const ki = bs.down_barrier, ko = bs.up_barrier;
+            const kiPct = Math.max(0, Math.min(100, (ki - lo) / range * 100));
+            const koPct = Math.max(0, Math.min(100, (ko - lo) / range * 100));
+            let fc = '#16a34a';
+            if (bs.state==='knock_in') fc='#dc2626'; else if (bs.state==='knock_out') fc='#2563eb';
+            vizHtml = `<div class="barrier-viz"><h4>障碍状态可视化</h4>
+                <div class="barrier-track">
+                    <div class="barrier-track-bg"></div>
+                    <div class="barrier-track-fill" style="width:${cpPct}%;background:${fc}"></div>
+                    <div class="barrier-line" style="left:${kiPct}%;background:#dc2626" data-label="敲入 ${ki.toFixed(0)}"></div>
+                    <div class="barrier-line" style="left:${ipPct}%;background:#94a3b8" data-label="期初 ${ip.toFixed(0)}"></div>
+                    <div class="barrier-line" style="left:${koPct}%;background:#16a34a" data-label="敲出 ${ko.toFixed(0)}"></div>
+                    <div class="barrier-current" style="left:${cpPct}%"></div>
+                </div>
+                <div class="barrier-labels">
+                    <span style="color:#dc2626">敲入: ${ki.toFixed(2)}</span>
+                    <span>现价: <strong>${cp.toFixed(2)}</strong></span>
+                    <span style="color:#16a34a">敲出: ${ko.toFixed(2)}</span>
+                </div></div>`;
+        } else if (p.product_type === 'single_shark' && bs.up_barrier) {
+            const ub = bs.up_barrier;
+            const ubPct = Math.max(0, Math.min(100, (ub - lo) / range * 100));
+            vizHtml = `<div class="barrier-viz"><h4>障碍状态可视化</h4>
+                <div class="barrier-track">
+                    <div class="barrier-track-bg"></div>
+                    <div class="barrier-track-fill" style="width:${cpPct}%;background:#2563eb"></div>
+                    <div class="barrier-line" style="left:${ipPct}%;background:#94a3b8" data-label="期初 ${ip.toFixed(0)}"></div>
+                    <div class="barrier-line" style="left:${ubPct}%;background:#f59e0b" data-label="障碍 ${ub.toFixed(0)}"></div>
+                    <div class="barrier-current" style="left:${cpPct}%"></div>
+                </div>
+                <div class="barrier-labels">
+                    <span>期初: ${ip.toFixed(2)}</span>
+                    <span>现价: <strong>${cp.toFixed(2)}</strong></span>
+                    <span style="color:#f59e0b">上涨障碍: ${ub.toFixed(2)}</span>
+                </div></div>`;
+        }
+    }
+
+    const detailRows = Object.entries(p.details||{}).map(([k,v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('');
+
+    const gridHtml = p.product_type !== 'three_element' ? `
+        <div class="detail-grid" style="grid-template-columns:1fr">
+            <div class="detail-item"><div class="label">估算基准</div><div class="value ${retClass(p.estimated_return)}">${p.nav>0?fmtRet(p.estimated_return):'--'}</div></div>
+        </div>` : '';
+
+    const statusDisplay = (p.product_type === 'three_element' && p.barrier_override) ? esc(p.barrier_override) : esc(p.status);
+
+    document.getElementById('detailContent').innerHTML = `
+        <div class="detail-header"><h2>${esc(p.product_name)}</h2>
+        <div class="subtitle">${esc(p.product_code)} | ${typeLabel(p.product_type)} | ${esc(p.underlying_name)} | ${esc(p.term_text||'')}</div></div>
+        ${gridHtml}
+        ${vizHtml}
+        <table class="info-table">
+            <tr><td>标的现价</td><td>${fmtPrice(p.current_price)}</td></tr>
+            <tr><td>期初价格</td><td>${fmtPrice(p.initial_price_display||p.initial_price)}</td></tr>
+            <tr><td>期末观察日</td><td>${p.maturity_date||'--'}</td></tr>
+            <tr><td>剩余天数</td><td>${p.days_to_maturity>0?p.days_to_maturity:'--'}</td></tr>
+            <tr><td>产品状态</td><td>${statusDisplay}</td></tr>
+            ${detailRows}
+        </table>`;
+    document.getElementById('detailModal').classList.add('active');
+}
+
+// ============================================================
+// Excel 导入（适配你的列格式）
+// ============================================================
+function openImportModal() { document.getElementById('importModal').classList.add('active'); }
+function switchTab(el, id) {
+    el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+function parsePctStr(val) {
+    if (!val || val === '/' || val === '') return 0;
+    let s = String(val).replace('%', '').replace('/年', '').trim();
+    let v = parseFloat(s);
+    if (isNaN(v)) return 0;
+    // 如果原始字符串包含%，说明是百分比格式，需要除以100
+    if (String(val).includes('%')) return v / 100;
+    // 如果是小数形式（如 1.02, 1.15），直接使用
+    if (v > 10) return v / 100; // 如 14.30 → 0.143
+    return v; // 如 1.02, 0.80 直接使用
+}
+
+function parsePctLevel(val) {
+    // 解析障碍价百分比水平（如 115% → 1.15, 80% → 0.80, 102% → 1.02）
+    if (!val || val === '/' || val === '') return 0;
+    let s = String(val).replace('%', '').trim();
+    let v = parseFloat(s);
+    if (isNaN(v)) return 0;
+    return v / 100; // 115 → 1.15, 80 → 0.80
+}
+
+function extractUnderlyingCode(name) {
+    if (!name) return '';
+    // 黄金AU9999 → AU9999
+    let m = name.match(/AU(\d+)/i);
+    if (m) return 'AU' + m[1];
+    // 中证1000 → 000852
+    if (name.includes('中证1000')) return '000852';
+    if (name.includes('中证500')) return '000905';
+    if (name.includes('沪深300')) return '000300';
+    // 碳酸锂期货2702 → LC2702
+    m = name.match(/碳酸锂.*?(\d{4})/);
+    if (m) return 'LC' + m[1];
+    // 沪铜2702 → CU2702
+    m = name.match(/沪铜.*?(\d{4})/);
+    if (m) return 'CU' + m[1];
+    return '';
+}
+
+function inferMarket(code, name) {
+    if (code.startsWith('AU')) return 'sge';
+    if (code.startsWith('000') || code.startsWith('399')) return 'cn_index';
+    if (code.startsWith('LC')) return 'futures_gfex';
+    if (code.startsWith('CU') || code.startsWith('AG') || code.startsWith('AU')) return 'futures_shfe';
+    return 'cn_index';
+}
+
+function handleExcelImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const wb = XLSX.read(e.target.result, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+            if (!rows.length) { showToast('Excel 为空'); return; }
+
+            const imported = rows.map(r => {
+                // 按列位置读取（兼容你的 Excel 格式）
+                const code = String(r['产品代码'] || r['A'] || '').trim();
+                const name = String(r['产品简称'] || r['B'] || '').trim();
+                const underlying = String(r['挂钩标的'] || r['C'] || '').trim();
+                const optType = String(r['期权类型'] || r['D'] || '').trim();
+                const termText = String(r['产品期限'] || r['E'] || '').trim();
+                const strikePct = parsePctLevel(r['行权价格'] || r['F']);
+                const upBarrierPct = parsePctLevel(r['上涨障碍价'] || r['G']);
+                const downBarrierPct = parsePctLevel(r['下跌障碍价'] || r['H']);
+                const partRate = parsePctStr(r['上涨参与率'] || r['I']);
+                const nonExRate = parsePctStr(r['未行权基准'] || r['J']);
+                const koRate = parsePctStr(r['敲出基准'] || r['K']);
+                const startDate = parseDate(r['期初观察日'] || r['L']);
+                const maturityDate = parseDate(r['期末观察日'] || r['M']);
+
+                const uCode = extractUnderlyingCode(underlying);
+                const market = inferMarket(uCode, underlying);
+                const pType = optType === '三元' ? 'three_element' : 'single_shark';
+
+                return {
+                    product_code: code, product_name: name,
+                    underlying_name: underlying, underlying_code: uCode, market,
+                    product_type: pType, term_text: termText,
+                    strike_pct: strikePct, up_barrier_pct: upBarrierPct, down_barrier_pct: downBarrierPct,
+                    participation_rate: partRate, non_exercise_rate: nonExRate, knock_out_rate: koRate,
+                    start_date: startDate, maturity_date: maturityDate,
+                    initial_price: 0, notional: 10000000
+                };
+            }).filter(p => p.product_code);
+
+            if (imported.length) {
+                products = imported;
+                saveProducts();
+                buildUnderlyingFilter();
+                recalculate();
+                document.getElementById('importModal').classList.remove('active');
+                showToast(`成功导入 ${imported.length} 个产品`);
+            } else {
+                showToast('未找到有效数据，请检查列名');
+            }
+        } catch(err) { showToast('Excel 解析失败: ' + err.message); }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function parseDate(val) {
+    if (!val) return '';
+    if (typeof val === 'number') {
+        // Excel serial date
+        try {
+            const d = XLSX.SSF.parse_date_code(val);
+            if (d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+        } catch(e) {}
+    }
+    const s = String(val).trim();
+    // 尝试多种格式
+    for (const fmt of [/(\d{4})-(\d{1,2})-(\d{1,2})/, /(\d{4})\/(\d{1,2})\/(\d{1,2})/, /(\d{4})\.(\d{1,2})\.(\d{1,2})/]) {
+        const m = s.match(fmt);
+        if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+    }
+    return s;
+}
+
+// ============================================================
+// 手动价格更新
+// ============================================================
+function submitManualPrice() {
+    const code = document.getElementById('manualCode').value.trim();
+    const price = parseFloat(document.getElementById('manualPrice').value);
+    if (!code) { showToast('请输入标的代码'); return; }
+    if (isNaN(price) || price <= 0) { showToast('请输入有效价格'); return; }
+    priceCache[code] = { price, time: new Date().toLocaleString('zh-CN') };
+    savePrices();
+    recalculate();
+    document.getElementById('manualCode').value = '';
+    document.getElementById('manualPrice').value = '';
+    showToast(`${code} 价格已更新为 ${price}`);
+}
+
+function submitBatchPrices() {
+    const text = document.getElementById('batchInput').value.trim();
+    if (!text) { showToast('请输入数据'); return; }
+    let count = 0;
+    text.split('\n').forEach(line => {
+        const parts = line.split(/[,，\t]/);
+        if (parts.length >= 2) {
+            const code = parts[0].trim(), price = parseFloat(parts[1].trim());
+            if (code && !isNaN(price) && price > 0) { priceCache[code] = { price, time: new Date().toLocaleString('zh-CN') }; count++; }
+        }
+    });
+    savePrices();
+    recalculate();
+    document.getElementById('batchInput').value = '';
+    showToast(`已更新 ${count} 个标的价格`);
+}
+
+// ============================================================
+// 工具函数
+// ============================================================
+function typeLabel(t) { return {'single_shark':'单鲨','three_element':'三元'}[t]||t; }
+function retClass(v) { return v>0?'ret-pos':v<0?'ret-neg':'ret-zero'; }
+function fmtRet(v) { return (v>0?'+':'')+v.toFixed(2)+'%'; }
+function fmtPrice(v) { return (!v||v<=0)?'--':(v>=10000?v.toLocaleString('zh-CN',{maximumFractionDigits:2}):v.toFixed(2)); }
+function fmtMoney(v) { return v>=1e8?(v/1e8).toFixed(2)+'亿':v>=1e4?(v/1e4).toFixed(2)+'万':v.toLocaleString('zh-CN',{maximumFractionDigits:2}); }
+function esc(s) { if(!s)return''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function showToast(msg) { const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),3000); }
+
+// ============================================================
+// 密码验证
+// ============================================================
+var _authOk = false;
+try { _authOk = sessionStorage.getItem('auth_ok') === '1'; } catch(e) {}
+
+if (_authOk) {
+    document.getElementById('loginOverlay').style.display = 'none';
+}
+
+function doLogin() {
+    var input = document.getElementById('passwordInput');
+    var errEl = document.getElementById('loginError');
+    if (input.value === 'hxzb8523') {
+        _authOk = true;
+        try { sessionStorage.setItem('auth_ok', '1'); } catch(e) {}
+        document.getElementById('loginOverlay').style.display = 'none';
+        errEl.style.display = 'none';
+    } else {
+        errEl.style.display = 'block';
+        input.value = '';
+        input.focus();
+    }
+}
+
+document.getElementById('passwordInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>
