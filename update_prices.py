@@ -346,7 +346,9 @@ def main():
             print(f"\n  HTML 文件未找到: {html_path}")
 
     print("\n完成! 打开 HTML 文件查看更新后的数据")
-    input("\n按回车键退出...")
+    import sys
+    if sys.stdin.isatty():
+        input("\n按回车键退出...")
 
 
 if __name__ == "__main__":
